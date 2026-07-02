@@ -1,0 +1,36 @@
+{
+  "name": "bot",
+  "version": "1.0.0",
+  "description": "WhatsApp bot (csong command only) with Baileys",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "pm2 start index.js --deep-monitoring --attach --name mr-rabbit",
+    "build": "pm2 start index.js --name mr-rabbit",
+    "restart": "pm2 restart mr-rabbit",
+    "stop": "pm2 stop mr-rabbit",
+    "delete": "pm2 delete mr-rabbit"
+  },
+  "keywords": [
+    "bot",
+    "baileys"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc.8",
+    "axios": "^1.13.6",
+    "body-parser": "2.2.2",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "ffmpeg-static": "^5.3.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "fs-extra": "^11.3.2",
+    "get-port": "^7.1.0",
+    "jimp": "^1.6.0",
+    "pino": "^10.1.0",
+    "pm2": "latest",
+    "socket.io-client": "latest",
+    "yt-search": "latest"
+  }
+}
