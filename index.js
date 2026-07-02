@@ -33,6 +33,7 @@ import getPort from "get-port";
 import { fileURLToPath } from "url";
 import { forceLoadPlugins, getPluginInfo } from "./lib/plugins.js";
 import { manager, main, db, pluginQueueStats } from "./lib/client.js";
+import initializeTelegramBot from "./bot.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -527,6 +528,12 @@ const PORT = process.env.PORT || await getPort({ port: 3000 });
     const server = app.listen(PORT, () => {
       console.log(`[app] 🚀 Server listening on port ${PORT}`);
     });
+
+    try {
+      initializeTelegramBot(manager);
+    } catch (error) {
+      console.error(error);
+    }
 
     server.on("error", (err) => {
       if (err.code === "EADDRINUSE") {
