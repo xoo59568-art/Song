@@ -1,0 +1,87 @@
+import { Module } from "../lib/plugins.js";
+
+Module({
+  command: "ping",
+  package: "mics",
+  description: "Replies with the bot latency",
+})(async (message) => {
+  const start = Date.now();
+  const emojis = [
+    "⛅",
+    "👻",
+    "⛄",
+    "👀",
+    "🪁",
+    "🪃",
+    "🎳",
+    "🎀",
+    "🌸",
+    "🍥",
+    "🎀",
+    "🍓",
+    "🍡",
+    "💗",
+    "🦋",
+    "💫",
+    "💀",
+    "☁️",
+    "🌨️",
+    "🌧️",
+    "🌦️",
+    "🌥️",
+    "⛅",
+    "🪹",
+    "⚡",
+    "🌟",
+    "☁️",
+    "🎐",
+    "🏖️",
+    "🎐",
+    "🪺",
+    "🌊",
+    "🐚",
+    "🪸",
+    "🍒",
+    "🍇",
+    "🍉",
+    "🌻",
+    "🎢",
+    "🚀",
+    "🍫",
+    "💎",
+    "🌋",
+    "🏔️",
+    "⛰️",
+    "🌙",
+    "🪐",
+    "🌲",
+    "🍃",
+    "🍂",
+    "🍁",
+    "🪵",
+    "🍄",
+    "🌿",
+    "🐞",
+    "🐍",
+    "🕊️",
+    "🎃",
+    "🏟️",
+    "🎡",
+    "🥂",
+    "🗿",
+    "⛩️",
+  ];
+  const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+  await message.react(emoji);
+  const latency = Date.now() - start;
+  await message.conn.sendMessage(
+    message.from,
+    {
+      text: `*𝐏☉𝐍𝐆: ${latency} 𝐌𝐒⤸⟵*`,
+      contextInfo: {
+        mentionedJid: [message.sender],
+      },
+    },
+    { quoted: message.gift }
+  );
+});
