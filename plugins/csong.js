@@ -165,15 +165,11 @@ Module({
 
     // 2️⃣ Voice note → channel only
     await message.conn.sendMessage(channelJid, {
-      audio: voiceBuffer,
+      audio: stream,
       mimetype: "audio/ogg; codecs=opus",
       ptt: true,
       seconds: duration,
-      waveform: waveform,
-      contextInfo: {
-        forwardingScore: 0,
-        isForwarded: false,
-      },
+      waveform: generateWaveform(),
     });
 
     await message.react("✅");
