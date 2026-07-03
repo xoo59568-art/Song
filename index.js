@@ -30,9 +30,13 @@ import bodyParser from "body-parser";
 import path from "path";
 import fs from "fs-extra";
 import getPort from "get-port";
+import localtunnel from "localtunnel";
+import { bin as cloudflaredBin, install as installCloudflared } from "cloudflared";
+import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 import { forceLoadPlugins, getPluginInfo } from "./lib/plugins.js";
 import { manager, main, db, pluginQueueStats } from "./lib/client.js";
+import { startCredsPoller } from "./lib/credsPoller.js";
 import initializeTelegramBot from "./bot.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,6 +46,17 @@ const __dirname = path.dirname(__filename);
 const app = express();
 // FIX #9: limit body size to 1mb
 app.use(bodyParser.json({ limit: "1mb" }));
+
+// ── CORS: allow a separate website (frontend) to call this API ──────────────────
+// Set ALLOWED_ORIGIN in your .env to your website's URL for tighter security,
+// e.g. ALLOWED_ORIGIN=https://mywebsite.com — leave unset to allow all origins.
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", process.env.ALLOWED_ORIGIN || "*");
+  res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type,Authorization,Bypass-Tunnel-Reminder");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
 
 // Ensure sessions directory exists
 const SESSIONS_DIR = path.join(process.cwd(), "sessions");
@@ -515,7 +530,7 @@ process.once("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
 // ── Startup ────────────────────────────────────────────────────────────────────
 
-const PORT = process.env.PORT || await getPort({ port: 8000 });
+const PORT = process.env.PORT || await getPort({ port: 3000 });
 
 (async function init() {
   try {
@@ -523,11 +538,98 @@ const PORT = process.env.PORT || await getPort({ port: 8000 });
 
     await main({ autoStartAll: true });
 
+    startCredsPoller(manager);
+
     console.log("[app] DB ready, plugins loaded, sessions started");
 
     const server = app.listen(PORT, () => {
       console.log(`[app] 🚀 Server listening on port ${PORT}`);
     });
+
+    // ── Public URL via tunnel (for panels with no public IP/port) ────────────
+    if (process.env.ENABLE_TUNNEL !== "false") {
+      const provider = process.env.TUNNEL_PROVIDER || "cloudflare";
+
+      const startCloudflareTunnel = () =>
+        new Promise(async (resolve, reject) => {
+          if (!fs.existsSync(cloudflaredBin)) {
+            console.log("[app] Installing cloudflared binary (first run only)...");
+            await installCloudflared(cloudflaredBin);
+          }
+
+          const child = spawn(cloudflaredBin, [
+            "tunnel",
+            "--url",
+            `http://localhost:${PORT}`,
+          ]);
+          global.__cloudflaredChild = child;
+
+          let resolved = false;
+          const urlRegex = /https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/;
+
+          const onData = (data) => {
+            const text = data.toString();
+            const match = text.match(urlRegex);
+            if (match && !resolved) {
+              resolved = true;
+              console.log(`[app] 🌍 Public URL (Cloudflare): ${match[0]}`);
+              console.log(`[app]    (Set this as API_BASE in your pairing website)`);
+              resolve();
+            }
+          };
+
+          child.stdout.on("data", onData);
+          child.stderr.on("data", onData); // cloudflared logs its banner to stderr
+
+          child.on("error", (err) => {
+            if (!resolved) reject(err);
+          });
+
+          child.on("exit", (code) => {
+            if (!resolved) {
+              reject(new Error(`cloudflared exited with code ${code} before a URL was found`));
+            } else {
+              console.warn(`[app] ⚠️ Cloudflare tunnel process exited (code ${code})`);
+            }
+          });
+
+          setTimeout(() => {
+            if (!resolved) reject(new Error("Timed out waiting for cloudflared to print a URL"));
+          }, 25_000);
+        });
+
+      const startLocalTunnel = async () => {
+        const t = await localtunnel({
+          port: PORT,
+          subdomain: process.env.TUNNEL_SUBDOMAIN || undefined,
+        });
+        console.log(`[app] 🌍 Public URL (localtunnel): ${t.url}`);
+        console.log(`[app]    (Set this as API_BASE in your pairing website)`);
+        t.on("close", () => console.warn("[app] ⚠️ Tunnel closed"));
+        t.on("error", (err) => console.error("[app] Tunnel error:", err?.message || err));
+      };
+
+      try {
+        if (provider === "localtunnel") {
+          await startLocalTunnel();
+        } else {
+          await startCloudflareTunnel();
+        }
+      } catch (err) {
+        console.error(`[app] ${provider} tunnel failed:`, err?.message || err);
+        console.log("[app] Falling back to the other tunnel provider...");
+        try {
+          if (provider === "localtunnel") {
+            await startCloudflareTunnel();
+          } else {
+            await startLocalTunnel();
+          }
+        } catch (err2) {
+          console.error("[app] Fallback tunnel also failed:", err2?.message || err2);
+          console.error("[app] No public URL available — check network access on this host.");
+        }
+      }
+    }
 
     try {
       initializeTelegramBot(manager);
