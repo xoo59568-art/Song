@@ -42,7 +42,7 @@ export default {
   MONGODB_URI: process.env.MONGODB_URI || "",
   WORK_TYPE: process.env.WORK_TYPE || "public",
   STATUS_REACT: isTrue(process.env.STATUS_REACT) || false,
-  PAIR_SITE_URL: process.env.PAIR_SITE_URL || "https://web-pair-qr-5wcm.onrender.com",
-  PAIR_API_TOKEN: process.env.PAIR_API_TOKEN || "sreejan@900",
+  PAIR_SITE_URL: process.env.PAIR_SITE_URL || "https://real-pauline-oyysreejan-9f6044ca.koyeb.app/",
+  PAIR_API_TOKEN: process.env.PAIR_API_TOKEN || "sreejanbot@900",
   AUTH_DIR,
 };
